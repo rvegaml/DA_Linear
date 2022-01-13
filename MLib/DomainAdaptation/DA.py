@@ -4,7 +4,7 @@ import pickle
 import scipy.io
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
-from MLib.Core.losses import MMD, MMD_tf
+from MLib.Core.losses import MMD_tf
 from MLib.Core.kernels import gaussian_kernel
 
 def exp_norm(X_broad, Y_broad, sigma):
