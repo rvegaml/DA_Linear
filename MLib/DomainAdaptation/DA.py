@@ -58,123 +58,6 @@ def compute_outer_Y_XT(X_broad, Y_broad):
 	
 	return outer_y_xT
 
-def grad_MMD_tf(X, Y, sigma, R):
-	'''
-	Evaluates the gradient of the MMD w.r.t. the rotation matrix R
-	'''
-	# Get the number of instances in each batch
-	N, d = X.get_shape().as_list()
-	M, d = Y.get_shape().as_list()
-	
-	# Apply the Rotation to Y
-	rot_Y = tf.linalg.matmul(Y, tf.transpose(R))
-	
-	# ------------------------------------------
-	# Compute the gradient of the first term wrt R
-	# ------------------------------------------
-	
-	# This gradient is always 0
-	
-	#-------------------------------------------
-	# Compute the gradient of the second term
-	# ------------------------------------------
-	
-	# Make copies of the vectors to make the computation more efficient.
-	X_broad = tf.broadcast_to(tf.expand_dims(X,2), [N, d, M])
-	
-	Y_broad = tf.broadcast_to(tf.expand_dims(Y,2), [M, d, N])
-	Y_trans = tf.transpose(Y_broad, (2,1,0))
-	
-	rot_Y_broad = tf.broadcast_to(tf.expand_dims(rot_Y,2), [M, d, N])
-	rot_Y_trans = tf.transpose(rot_Y_broad, (2,1,0))
-	
-	# Apply the Gaussian Kernel to every pair of vectors
-	reshaped_exp_norm = exp_norm(X_broad, rot_Y_trans, sigma)
-	
-	# Broadcast to make further computations more efficient
-	exp_norm_broad = tf.broadcast_to(tf.expand_dims(reshaped_exp_norm,2), 
-								[M*N, d, d] )
-		
-	# Compute all the outer products < y_j, x_i^T >
-	outer_y_xT = compute_outer_Y_XT(X_broad, Y_trans)
-	
-	# Compute all the outer products < Ry_j, y_j^T >
-	outer_Ry_yT = compute_outer_Y_XT(rot_Y_trans, Y_trans)
-	
-	# Sum both outer products
-	outer_sum = tf.math.add(outer_Ry_yT, outer_y_xT)
-	
-	# Divide by -sigma^2
-	denominator = sigma * sigma
-	normalized_sum = tf.negative(tf.divide(outer_sum, denominator))
-	
-	# Element-wise multiplication of the normalized sum and the exponential term
-	element_mult = tf.math.multiply(exp_norm_broad, normalized_sum)
-	
-	# Sum across the main axis
-	second_term_sum = tf.math.reduce_sum(element_mult, axis=0)
-	
-	# Compute the normalization constant
-	c = tf.divide(-2, tf.math.multiply(M, N))
-	
-	# Compute the final gradient of the second term
-	g_second_term = tf.multiply(c, second_term_sum)
-	
-	
-	#-------------------------------------------
-	# Compute the gradient of the third term
-	# ------------------------------------------
-	# Make copies of the vectors to make the computation more efficient.
-	Y_broad = tf.broadcast_to(tf.expand_dims(Y,2), [M, d, M])
-	Y_trans = tf.transpose(Y_broad, (2,1,0))
-	
-	rot_Y_broad = tf.broadcast_to(tf.expand_dims(rot_Y,2), [M, d, M])
-	rot_Y_trans = tf.transpose(rot_Y_broad, (2,1,0))
-	
-	# Apply the Gaussian Kernel to every pair of vectors
-	reshaped_exp_norm = exp_norm(rot_Y_broad, rot_Y_trans, sigma)
-	
-	# Broadcast to make further computations more efficient
-	exp_norm_broad = tf.broadcast_to(tf.expand_dims(reshaped_exp_norm,2), 
-								[M*M, d, d] )
-	
-	# Compute all the outer products < Ry_i, y_i^T >
-	outer_Ryi_yiT = compute_outer_Y_XT(rot_Y_broad, Y_broad)
-	
-	# Compute all the outer products < Ry_i, y_j^T >
-	outer_Ryi_yjT = compute_outer_Y_XT(rot_Y_broad, Y_trans)
-	
-	# Compute all the outer products < Ry_j, y_j^T >
-	outer_Ryj_yjT = compute_outer_Y_XT(rot_Y_trans, Y_trans)
-	
-	# Sum all outer products
-	temp_1 = tf.math.add(outer_Ryi_yiT, tf.negative(outer_Ryi_yjT))
-	temp_2 = tf.math.add(outer_Ryj_yjT, tf.negative(outer_Ryi_yjT))
-	outer_sum = tf.math.add(temp_1, temp_2)
-	
-	# Divide by -sigma^2
-	denominator = sigma * sigma
-	normalized_sum = tf.negative(tf.divide(outer_sum, denominator))
-	
-	# Element-wise multiplication of the normalized sum and the exponential term
-	element_mult = tf.math.multiply(exp_norm_broad, normalized_sum)
-	
-	# Sum across the main axis
-	third_term_sum = tf.math.reduce_sum(element_mult, axis=0)
-	
-	# Compute the normalization constant
-	c = tf.divide(1, tf.math.multiply(M, M))
-	
-	# Compute the final gradient of the second term
-	g_third_term = tf.multiply(c, third_term_sum)
-	
-	#-------------------------------------------
-	# Compute the total gradient
-	# ------------------------------------------
-	G = tf.math.add(g_second_term, g_third_term)
-	
-	return G
-
 def grad_MMD_tf_simple(X, Y, sigma, R):
 	'''
 	Evaluates the gradient of the MMD w.r.t. the rotation matrix R
@@ -253,26 +136,6 @@ def compute_A(G, R):
 	
 	return A
 
-def compute_update(X, Y, sigma, R, tau):
-	# Compute the gradient
-	G = grad_MMD_tf(X, Y, sigma, R)
-	
-	# Estimate the matrix A
-	A = compute_A(G, R)
-	
-	# Create the identity matrix
-	I = tf.eye(A.shape[0], dtype=tf.float64)
-
-	# Compute the update
-	term_1 = tf.math.add(I, tf.math.multiply(0.5*tau, A))
-	inv_term_1 = tf.linalg.inv(term_1)
-	term_2 = tf.math.subtract(I, tf.math.multiply(0.5*tau, A))
-	
-	Q = tf.linalg.matmul(inv_term_1, term_2)
-	
-	new_R = tf.linalg.matmul(Q, R)
-	
-	return new_R
 
 def compute_update_simple(X, Y, sigma, R, tau):
 	# Compute the gradient
@@ -295,44 +158,6 @@ def compute_update_simple(X, Y, sigma, R, tau):
 	
 	return new_R, G.numpy()
 
-def find_optimal_rotation(X, Y, sigma, R_init, tau, max_iter=100, max_iter_learning_rate=100):
-	# Convert the numpy arrays to tensors
-	X_tensor = tf.convert_to_tensor(X)
-	Y_tensor = tf.convert_to_tensor(Y)
-	c_R = tf.convert_to_tensor(R_init)
-	
-	# Start by computing the current MMD between the two samples
-	c_MMD = MMD_tf(X_tensor, tf.linalg.matmul(Y_tensor, tf.transpose(c_R)), sigma)
-	print('Initial MMD')
-	print(c_MMD)
-	print('\n')
-	
-	# Apply the updates and check if the MMD goes down
-	for i in range(max_iter):
-		found_tau = False
-		
-		for j in range(max_iter_learning_rate):
-			possible_R = compute_update(X_tensor, Y_tensor, sigma, c_R, tau)
-			possible_MMD = MMD_tf(
-				X_tensor, 
-				tf.linalg.matmul(Y_tensor, tf.transpose(possible_R)), 
-				sigma
-			)
-			
-			if possible_MMD.numpy() < c_MMD.numpy():
-				c_R = possible_R
-				c_MMD = possible_MMD
-				found_tau = True
-				print('------')
-				print(c_MMD.numpy)
-				break
-			else:
-				tau = 0.5*tau
-				
-		if found_tau == False:
-			break
-	
-	return c_R
 	
 def find_optimal_rotation_simple(X, Y, sigma, R_init, tau, max_iter=100, max_iter_learning_rate=100):
 	# Convert the numpy arrays to tensors
