@@ -1,6 +1,5 @@
 '''
 File: losses.py
-Author: Roberto Vega
 Description:
 	This file contains common loss functions used in my functions.
 '''
