@@ -266,6 +266,17 @@ def find_optimal_rotation_batches(X, Y, sigma, R_init, tau, max_iter=100, max_it
 	
 	return c_R, c_MMD
 
+def CORAL(X_S, X_T):
+	# Take the covariance matrices of the source and target sets
+	cov_S = np.cov(X_S.T) + np.eye(X_S.shape[1])
+	cov_T = np.cov(X_T.T) + np.eye(X_T.shape[1])
+
+	temp = np.matmul( X_S, np.sqrt(np.linalg.inv(cov_S)) )
+	D_S = np.matmul(temp, np.sqrt(cov_T))
+
+	return D_S
+
+
 def main():
 	return -1
 
