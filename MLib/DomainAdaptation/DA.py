@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
 from MLib.Core.losses import MMD_tf
 from MLib.Core.kernels import gaussian_kernel
+from sklearn.preprocessing import StandardScaler
 
 def exp_norm(X_broad, Y_broad, sigma):
 	'''
@@ -267,14 +268,18 @@ def find_optimal_rotation_batches(X, Y, sigma, R_init, tau, max_iter=100, max_it
 	return c_R, c_MMD
 
 def CORAL(X_S, X_T):
+	scaler = StandardScaler()
+	Z_S = scaler.fit_transform(X_S)
+	Z_T = scaler.fit_transform(X_T)
+
 	# Take the covariance matrices of the source and target sets
-	cov_S = np.cov(X_S.T) + np.eye(X_S.shape[1])
-	cov_T = np.cov(X_T.T) + np.eye(X_T.shape[1])
+	cov_S = np.cov(Z_S.T) + np.eye(Z_S.shape[1])
+	cov_T = np.cov(Z_T.T) + np.eye(Z_T.shape[1])
 
 	temp = np.matmul( X_S, np.sqrt(np.linalg.inv(cov_S)) )
 	D_S = np.matmul(temp, np.sqrt(cov_T))
 
-	return D_S
+	return D_S, Z_T
 
 
 def main():
